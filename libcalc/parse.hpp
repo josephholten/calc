@@ -78,7 +78,11 @@ public:
 
 private:
 	std::optional<AstPtr> parse_number();
+	std::optional<AstPtr> parse_exp();
+	std::optional<AstPtr> parse_paren();
+	std::optional<AstPtr> parse_base();
 	std::optional<AstPtr> parse_product();
+	std::optional<AstPtr> parse_expr();
 
 	std::vector<Token> tokens;
     std::vector<Token>::const_iterator next;

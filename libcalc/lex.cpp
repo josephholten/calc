@@ -47,6 +47,9 @@ Token lex_number(std::string_view input, size_t& start) {
     while ((input[end] >= '0' && input[end] <= '9') || input[end] == '.') {
         end++;
     }
+    if (start == end) {
+        throw std::invalid_argument(fmt::format("unexpected character '{}'", input[start]));
+    }
 	Token token = {.text = input.substr(start, end-start), .type = TokenType::Number};
 	start = end;
     return token;
@@ -69,6 +72,23 @@ Token lex_operator(std::string_view input, size_t& start) {
             break;
         case '^':
             type = TokenType::Exp;
+            break;
+        default:
+            throw std::invalid_argument(fmt::format("unexpected character '{}'", input[start]));
+    }
+    Token op = {.text = input.substr(start, 1), .type = type};
+    start++;
+    return op;
+}
+
+Token lex_paren(std::string_view input, size_t& start) {
+    TokenType type = TokenType::None;
+    switch (input[start]) {
+        case '(':
+            type = TokenType::ParenL;
+            break;
+        case ')':
+            type = TokenType::ParenR;
             break;
     }
     Token op = {.text = input.substr(start, 1), .type = type};
@@ -106,6 +126,10 @@ std::vector<Token> lex(std::string_view input) {
             case '/':
             case '^':
                 tokens.push_back(lex_operator(input, i));
+                break;
+            case '(':
+            case ')':
+                tokens.push_back(lex_paren(input, i));
                 break;
 			default: 
 				throw std::invalid_argument(fmt::format("invalid character {}", c));

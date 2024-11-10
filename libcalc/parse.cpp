@@ -48,10 +48,6 @@ Parser::Parser(std::vector<Token> _tokens)
 	: tokens{std::move(_tokens)}, next{tokens.begin()}
 { }
 
-std::optional<AstPtr> Parser::parse() {
-	return parse_product();
-}
-
 std::optional<AstPtr> Parser::parse_number() {
 	if (next->type == TokenType::Number) {
 		double x;
@@ -68,32 +64,96 @@ std::optional<AstPtr> Parser::parse_number() {
 	}
 }
 
+std::optional<AstPtr> Parser::parse_exp() {
+	std::optional<AstPtr> base = parse_base();
+	if (!base) {
+		return {};
+	}
+
+	while (next->type == TokenType::Exp) {
+		// nextsym
+		next++;
+
+		// expect
+		std::optional<AstPtr> exp = parse_exp(); // either number or exp expression
+		if (!exp) {
+			throw std::invalid_argument("expected exp-expression");
+		}
+		base = std::make_unique<OperatorNode>(std::move(*base), OperatorType::Exp, std::move(*exp));
+	}
+
+	return base;
+}
+
+std::optional<AstPtr> Parser::parse_paren() {
+	if (next->type != TokenType::ParenL) {
+		return {};
+	}
+
+	// nextsym
+	next++;
+	std::optional<AstPtr> paren_expr = parse_expr();
+
+	if (next->type != TokenType::ParenR) {
+		throw std::invalid_argument("expected right parenthesis");
+	}
+
+	// nextsym
+	next++;
+
+	return paren_expr;
+}
+
+std::optional<AstPtr> Parser::parse_base() {
+	std::optional<AstPtr> number_expr = parse_number();
+	if (number_expr) {
+		return number_expr;
+	}
+
+	std::optional<AstPtr> paren_expr = parse_paren();
+	if (paren_expr) {
+		return paren_expr;
+	}
+
+	return {};
+}
+
+static OperatorType token_to_operator(TokenType t) {
+	OperatorType op = OperatorType::None;
+	switch (t) {
+		case TokenType::Mult:
+			op = OperatorType::Mult;
+			break;
+		case TokenType::Div:
+			op = OperatorType::Div;
+			break;
+		case TokenType::Plus:
+			op = OperatorType::Plus;
+			break;
+		case TokenType::Minus:
+			op = OperatorType::Minus;
+			break;
+		default:
+			throw std::logic_error(fmt::format("Error: unexpected token type {}", t));
+	}
+	return op;
+}
+
 std::optional<AstPtr> Parser::parse_product() {
-	std::optional<AstPtr> lhs = parse_number();
+	std::optional<AstPtr> lhs = parse_exp();
 	if (!lhs) {
 		return {};
 	}
 
 	while (next->type == TokenType::Mult || next->type == TokenType::Div) {
-		OperatorType op = OperatorType::None;
-		switch (next->type) {
-			case TokenType::Mult:
-				op = OperatorType::Mult;
-				break;
-			case TokenType::Div:
-				op = OperatorType::Div;
-				break;
-			default:
-				throw std::logic_error(fmt::format("Error: unexpected token {}", *next));
-		}
-
+		OperatorType op = token_to_operator(next->type);
 		// nextsym
 		next++;
 
 		// expect
-		std::optional<AstPtr> rhs = parse_number();
+		std::optional<AstPtr> rhs = parse_exp();
 		if (!rhs) {
-			throw std::invalid_argument(fmt::format("expected number token, got {}", *next));
+			throw std::invalid_argument(fmt::format("expected factor-expression"));
 		}
 
 		lhs = std::make_unique<OperatorNode>(std::move(*lhs), op, std::move(*rhs));
@@ -101,67 +161,32 @@ std::optional<AstPtr> Parser::parse_product() {
 	return lhs;
 }
 
-/*
-std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector<Token>::const_iterator end) {
-	if (start == end) {
-		throw std::invalid_argument("no input");
+std::optional<AstPtr> Parser::parse_expr() {
+	std::optional<AstPtr> lhs = parse_product();
+	if (!lhs) {
+		return {};
 	}
 
-	// first should be number
-	if (start->type != TokenType::Number) {
-		throw std::invalid_argument(fmt::format("start: unexpected token '{}'", start->text));
-	}
+	while (next->type == TokenType::Plus || next->type == TokenType::Minus) {
+		OperatorType op = token_to_operator(next->type);
+		// nextsym
+		next++;
 
-	double x;
-	auto [ptr, ec] = std::from_chars(start->text.data(), start->text.data() + start->text.size(), x);
-	if (ec != std::errc()) { // error
-		throw std::invalid_argument(fmt::format("cannot parse '{}' as double", start->text));	
-	}
-	// fmt::println("{}", x);
+		// expect
+		std::optional<AstPtr> rhs = parse_product();
+		if (!rhs) {
+			throw std::invalid_argument(fmt::format("expected product-expression"));
+		}
 
-	std::unique_ptr<Ast> number = std::make_unique<NumberNode>(x);
-
-    start++;
-	// next either done
-	if (start == end) {
-		return number;
+		lhs = std::make_unique<OperatorNode>(std::move(*lhs), op, std::move(*rhs));
 	}
-
-	// or next should be operator
-	if (start->type == TokenType::Number) {
-		throw std::invalid_argument(fmt::format("next should be op: unexpected token '{}'", start->text));
-	}
-	if (start->text.size() != 1) {
-		throw std::logic_error(fmt::format("encountered invalid operator '{}'", start->text));
-	}
-
-	OperatorType op = OperatorType::None;
-	switch (start->type) {
-		case TokenType::Plus:
-			op = OperatorType::Plus;
-			break;
-		case TokenType::Minus:
-			op = OperatorType::Minus;
-			break;
-		case TokenType::Mult:
-			op = OperatorType::Mult;
-			break;
-		case TokenType::Div:
-			op = OperatorType::Div;
-			break;
-		case TokenType::Exp:
-			op = OperatorType::Exp;
-			break;
-		default:
-			throw std::logic_error(fmt::format("encountered invalid operator '{}'", start->text));
-	}
-
-	start++;
-	return std::make_unique<OperatorNode>(
-		std::move(number), 
-		op,
-		parse(start, end)
-	);
+	return lhs;
 }
-*/
 
+std::optional<AstPtr> Parser::parse() {
+	auto expr = parse_expr();
+	if (next != tokens.end()) {
+		throw std::invalid_argument(fmt::format("unused token {}", *next));
+	}
+	return expr;
+}
