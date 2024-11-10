@@ -6,7 +6,14 @@
 
 enum class TokenType {
     Number,
-    Operator,
+    Plus,
+    Minus,
+    Mult,
+    Div,
+    Exp,
+    ParenL,
+    ParenR,
+    None,
 };
 
 template <>

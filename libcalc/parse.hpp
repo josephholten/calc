@@ -4,6 +4,7 @@
 #include <fmt/ranges.h>
 #include <vector>
 #include <libcalc/lex.hpp>
+#include <memory>
 
 enum class OperatorType {
     Plus,

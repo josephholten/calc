@@ -71,7 +71,7 @@ std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector
 	}
 
 	// or next should be operator
-	if (start->type != TokenType::Operator) {
+	if (start->type == TokenType::Number) {
 		throw std::invalid_argument(fmt::format("next should be op: unexpected token '{}'", start->text));
 	}
 	if (start->text.size() != 1) {
@@ -79,20 +79,20 @@ std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector
 	}
 
 	OperatorType op = OperatorType::None;
-	switch (start->text[0]) {
-		case '+':
+	switch (start->type) {
+		case TokenType::Plus:
 			op = OperatorType::Plus;
 			break;
-		case '-':
+		case TokenType::Minus:
 			op = OperatorType::Minus;
 			break;
-		case '*':
+		case TokenType::Mult:
 			op = OperatorType::Mult;
 			break;
-		case '/':
+		case TokenType::Div:
 			op = OperatorType::Div;
 			break;
-		case '^':
+		case TokenType::Exp:
 			op = OperatorType::Exp;
 			break;
 		default:
