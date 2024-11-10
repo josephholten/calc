@@ -26,6 +26,11 @@ struct Token {
     TokenType type;
 };
 
+template <>
+struct fmt::formatter<Token> : formatter<string_view> {
+	format_context::iterator format(Token t, format_context& ctx) const;
+};
+
 Token lex_number(std::string_view input, size_t& start);
 std::vector<Token> lex(std::string_view input);
 

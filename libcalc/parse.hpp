@@ -23,15 +23,26 @@ struct fmt::formatter<OperatorType> : formatter<string_view> {
 class Ast {
 public:
 	virtual double evaluate() = 0;
+	virtual void print(size_t indent = 0) = 0;
 };
+
+using AstPtr = std::unique_ptr<Ast>;
 
 class OperatorNode : public Ast {
 public:
-	OperatorNode(std::unique_ptr<Ast> _left, OperatorType _op, std::unique_ptr<Ast> _right) 
+	OperatorNode(std::unique_ptr<Ast> _left, OperatorType _op, std::unique_ptr<Ast> _right)
 		: left{std::move(_left)}, op{_op}, right{std::move(_right)}
 	{ }
 
 	double evaluate() override;
+
+	void print(size_t indent = 0) override {
+		for (size_t i = 0; i < indent; i++)
+			fmt::print(" ");
+		fmt::println("(OperatorNode '{}')", op);
+		left->print(indent + 2);
+		right->print(indent + 2);
+	}
 
 private:
     std::unique_ptr<Ast> left;
@@ -49,10 +60,28 @@ public:
 		return x;
 	}
 
+	void print(size_t indent = 0) override {
+		for (size_t i = 0; i < indent; i++)
+			fmt::print(" ");
+		fmt::println("(NumberNode '{}')", x);
+	}
+
 private:
 	double x;
 };
 
-std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector<Token>::const_iterator end);
+class Parser {
+public:
+    Parser(std::vector<Token> _tokens);
+
+	std::optional<AstPtr> parse();
+
+private:
+	std::optional<AstPtr> parse_number();
+	std::optional<AstPtr> parse_product();
+
+	std::vector<Token> tokens;
+    std::vector<Token>::const_iterator next;
+};
 
 #endif /* LIBCALC_PARSE_HPP */

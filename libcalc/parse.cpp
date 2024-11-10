@@ -1,5 +1,6 @@
 #include <libcalc/parse.hpp>
 #include <charconv>
+#include <optional>
 
 auto fmt::formatter<OperatorType>::format(OperatorType op, format_context& ctx) const -> format_context::iterator {
     string_view name = "unknown";
@@ -43,8 +44,64 @@ double OperatorNode::evaluate() {
 	}
 }
 
+Parser::Parser(std::vector<Token> _tokens)
+	: tokens{std::move(_tokens)}, next{tokens.begin()}
+{ }
 
+std::optional<AstPtr> Parser::parse() {
+	return parse_product();
+}
 
+std::optional<AstPtr> Parser::parse_number() {
+	if (next->type == TokenType::Number) {
+		double x;
+		std::string_view text = next->text;
+		auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), x);
+		if (ec != std::errc()) { // error
+			throw std::invalid_argument(fmt::format("cannot parse '{}' as double", text));
+		}
+		auto node = std::make_unique<NumberNode>(x);
+		next++;
+		return node;
+	} else {
+		return {};
+	}
+}
+
+std::optional<AstPtr> Parser::parse_product() {
+	std::optional<AstPtr> lhs = parse_number();
+	if (!lhs) {
+		return {};
+	}
+
+	while (next->type == TokenType::Mult || next->type == TokenType::Div) {
+		OperatorType op = OperatorType::None;
+		switch (next->type) {
+			case TokenType::Mult:
+				op = OperatorType::Mult;
+				break;
+			case TokenType::Div:
+				op = OperatorType::Div;
+				break;
+			default:
+				throw std::logic_error(fmt::format("Error: unexpected token {}", *next));
+		}
+
+		// nextsym
+		next++;
+
+		// expect
+		std::optional<AstPtr> rhs = parse_number();
+		if (!rhs) {
+			throw std::invalid_argument(fmt::format("expected number token, got {}", *next));
+		}
+
+		lhs = std::make_unique<OperatorNode>(std::move(*lhs), op, std::move(*rhs));
+	}
+	return lhs;
+}
+
+/*
 std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector<Token>::const_iterator end) {
 	if (start == end) {
 		throw std::invalid_argument("no input");
@@ -106,5 +163,5 @@ std::unique_ptr<Ast> parse(std::vector<Token>::const_iterator start, std::vector
 		parse(start, end)
 	);
 }
-
+*/
 

@@ -9,35 +9,41 @@
 static const char usage[] =
 R"(calc.
 Usage:
-    calc [--evaluate="EXPR"] [--tokens]
+    calc [--evaluate="EXPR"] [--tokens] [--ast]
 
 Options:
     -e --evaluate="EXPR"  Evaluate expression non interactively. By default interactive.
     -t --tokens           Print tokens.
+    -a --ast              Print Abstract Syntax Tree.
 )";
 
-void evaluate(std::string input, bool print_tokens) {
+void evaluate(std::string input, bool print_tokens, bool print_ast) {
     std::vector<Token> tokens;
     tokens = lex(input);
 
-    if (!tokens.empty()) {
-        if (print_tokens) {
-            fmt::println(" -- Tokens:");
-            for (Token t : tokens) {
-                fmt::println(" -- {} '{}'", t.type, t.text);
-            }
+    if (print_tokens) {
+        for (Token t : tokens) {
+            fmt::println("{}", t);
         }
+    }
 
-        std::unique_ptr<Ast> tree = parse(tokens.begin(), tokens.end());
-        fmt::println("{}", tree->evaluate());
+    Parser parser{tokens};
+    std::optional<AstPtr> ast = parser.parse();
+    if (ast) {
+        if (print_ast) {
+            (*ast)->print();
+        }
+        fmt::println("{}", (*ast)->evaluate());
     }
 }
 
 int main(int argc, char** argv) {
     auto args = docopt::docopt(usage, {argv+1, argv+argc});
+    bool print_tokens = args["--tokens"].asBool();
+    bool print_ast = args["--ast"].asBool();
 
     if (args["--evaluate"]) {
-        evaluate(args["--evaluate"].asString(), args["--tokens"].asBool());
+        evaluate(args["--evaluate"].asString(), print_tokens, print_ast);
         return 0;
     }
 
@@ -46,7 +52,7 @@ int main(int argc, char** argv) {
         std::string input;
         std::getline(std::cin, input);
         try {
-            evaluate(input, args["--tokens"].asBool());
+            evaluate(input, print_tokens, print_ast);
         } catch (std::exception& e) {
             fmt::println("Error: {}", e.what());
         }

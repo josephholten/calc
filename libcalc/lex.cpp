@@ -38,7 +38,9 @@ auto fmt::formatter<TokenType>::format(TokenType t, format_context& ctx) const -
     return formatter<string_view>::format(name, ctx);
 }
 
-
+auto fmt::formatter<Token>::format(Token t, format_context& ctx) const -> format_context::iterator {
+    return fmt::format_to(ctx.out(), "[{} '{}']", t.type, t.text);
+}
 
 Token lex_number(std::string_view input, size_t& start) {
     size_t end = start;
